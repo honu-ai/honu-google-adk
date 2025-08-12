@@ -7,19 +7,6 @@ from google.adk.tools.base_toolset import BaseToolset
 
 from honu_google_adk.utils import _get_client, _get_unauth_client
 
-
-def register_token(token: str, tool_context: ToolContext) -> dict:
-    tool_context.state['token'] = token
-    return dict(message='token saved')
-
-def retrieve_token(tool_context: ToolContext) -> dict:
-    token = tool_context.state.get('token')
-    return dict(message="token retrieved", token=token)
-
-def register_model(model_ref: str, tool_context: ToolContext) -> dict:
-    tool_context.state['model_ref'] = model_ref
-    return dict(message='registered models')
-
 def create_tool(function_name: str, function_description: str):
 
     async def _inner(args: dict, tool_context: ToolContext):
