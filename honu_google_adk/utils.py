@@ -18,8 +18,8 @@ def _get_unauth_client():
     return client
 
 def _get_client(tool_context: ToolContext):
-    token = tool_context.state.get('additionalProp1').get('token')
-    model_ref = tool_context.state.get('additionalProp1').get('model_ref')
+    token = tool_context.state.get('token')
+    model_ref = tool_context.state.get('model_ref')
 
     # In-memory server (ideal for testing)
     client = Client(
