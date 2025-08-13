@@ -7,7 +7,7 @@ A Python package that integrates Google AI Development Kit (ADK) agents with the
 ### Using uv (Recommended for Google tutorials)
 
 ```bash
-uv pip install -e "honu-google-adk @ <path to cloned>/honu-google-adk"
+uv pip install git+https://github.com/honu-ai/honu-google-adk.git@main
 ```
 
 ### Using Poetry
