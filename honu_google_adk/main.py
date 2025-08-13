@@ -27,6 +27,21 @@ def create_tool(function_name: str, function_description: str):
     return _inner
 
 class HonuToolSet(BaseToolset):
+    tags: set[str] | None = None
+
+    def __init__(self, *tags_to_filter_by: str):
+        if len(tags_to_filter_by):
+            self.tags = set(tags_to_filter_by)
+        super().__init__(tool_filter=None)
+
+    def _is_valid_tool(self, tool: BaseTool) -> bool:
+        if self.tags is None:
+            return True
+
+        if not hasattr(tool, "meta"):
+            return False
+        tool_tags = set(getattr(tool, 'meta').get('_fastmcp', {}).get('tags', []))
+        return len(self.tags & tool_tags) > 0
 
     async def get_tools(
             self,
@@ -34,16 +49,10 @@ class HonuToolSet(BaseToolset):
     ) -> list[BaseTool]:
         client = _get_unauth_client()
         tools=[]
-        async with client:
+        async with ((client)):
             for tool in await client.list_tools():
-                tools.append(
-                    FunctionTool(
-                        create_tool(
-                            tool.name,
-                            tool.description
-                        )
-                    )
-                )
+                if self._is_valid_tool(tool):
+                    tools.append(FunctionTool(create_tool(tool.name,tool.description)))
 
         return tools
 

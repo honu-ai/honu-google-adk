@@ -32,9 +32,13 @@ class HonuAgentRouter:
         @api.post("/agents/{agent_id}/init_engagement/", status_code=status.HTTP_201_CREATED, include_in_schema=False)
         @api.post("/agents/{agent_id}/init_engagement", status_code=status.HTTP_201_CREATED)
         def init_engagement(agent_id: str, init: InitEngagement) -> None:
-
             conv_client = ConversationClient.get_instance()
-            conv = conv_client.create_conversation(init.auth_token, init.mdl_ref, name="multi_tool_agent_conversation")
+            # Get the data from the agent signature for making the chat name
+            signature_payload = base64.b64decode(init.agent_signature.removeprefix('external_agent/').encode()).decode().split('/')
+            url = f'{signature_payload[0]}//{signature_payload[2]}'
+            app_name = signature_payload[3]
+            conversation_name = f'{app_name} @ {url}'
+            conv = conv_client.create_conversation(init.auth_token, init.mdl_ref, name=conversation_name)
             session_id = conv.conversation_id
 
             payload = dict(
@@ -52,7 +56,10 @@ class HonuAgentRouter:
             conversation_client = ConversationClient.get_instance()
             sessions = self.local_session_client.get_sessions_for_model_ref(agent_id, disengage.mdl_ref)
             for token, conv_id in sessions:
-                conversation_client.delete_conversation(token, disengage.mdl_ref, conv_id)
+                try:
+                    conversation_client.delete_conversation(token, disengage.mdl_ref, conv_id)
+                except:
+                    pass
                 self.local_session_client.delete_session(agent_id, conv_id)
 
         @api.post("/messages/", status_code=status.HTTP_200_OK, include_in_schema=False)
@@ -80,7 +87,18 @@ class HonuAgentRouter:
                     continue
 
                 # Capture response and send to chat
-                message = Event(**json.loads(sse.data))
+                try:
+                    message = Event(**json.loads(sse.data))
+                except:
+                    print("ERROR DURING RUN")
+                    print(sse)
+                    print("----------")
+                    conversation_client.send_message(
+                        token,
+                        conv,
+                        TextMessage(body='An error occurred handling your latest message. Please try again.')
+                    )
+                    continue
                 for part in message.content.parts:
                     if part.function_call:
                         conversation_client.set_chat_status(token, conv, f'running tool: {part.function_call.name}')
