@@ -6,8 +6,6 @@ from google.adk.tools import ToolContext
 
 MCP_HOST = os.getenv("MCP_HOST", None)
 
-print(f"Using MCP_HONU: {MCP_HOST}")
-
 def _get_unauth_client():
     # In-memory server (ideal for testing)
     client = Client(

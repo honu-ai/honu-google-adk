@@ -54,7 +54,7 @@ class HonuToolSet(BaseToolset):
     ) -> list[BaseTool]:
         client = _get_unauth_client()
         tools=[]
-        async with ((client)):
+        async with client:
             for tool in await client.list_tools():
                 if self._is_valid_tool(self.tags, tool):
                     tools.append(FunctionTool(create_tool(tool.name,tool.description)))
