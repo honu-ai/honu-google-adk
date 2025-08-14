@@ -33,6 +33,7 @@ Create a `.env` file in your project root:
 ```bash
 MCP_HOST="http://mcp.honu.ai/mcp"
 PORT=7999  # Optional: defaults to 7999 locally, uses Cloud Run's PORT in production
+SESSION_SERVICE_URI=sqlite:///./sessions.db
 ```
 
 ### 1. Include the Honu Router
