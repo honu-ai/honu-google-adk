@@ -1,14 +1,12 @@
 import os
 
-from dotenv import load_dotenv
 from fastmcp import Client
 from fastmcp.client import StreamableHttpTransport
 from google.adk.tools import ToolContext
 
-load_dotenv()
+MCP_HOST = os.getenv("MCP_HOST", None)
 
-MCP_HOST = os.getenv("MCP_HOST", "http://localhost:8282/mcp/")
-print(f"MCP_HONU: {MCP_HOST}")
+print(f"Using MCP_HONU: {MCP_HOST}")
 
 def _get_unauth_client():
     # In-memory server (ideal for testing)

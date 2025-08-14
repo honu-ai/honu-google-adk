@@ -34,14 +34,19 @@ class HonuToolSet(BaseToolset):
             self.tags = set(tags_to_filter_by)
         super().__init__(tool_filter=None)
 
-    def _is_valid_tool(self, tool: BaseTool) -> bool:
-        if self.tags is None:
+    @staticmethod
+    def _is_valid_tool(valid_tool_tags: set[str], tool: BaseTool) -> bool:
+        if valid_tool_tags is None:
             return True
 
         if not hasattr(tool, "meta"):
             return False
+
+        if getattr(tool, 'meta') is None:
+            return False
+
         tool_tags = set(getattr(tool, 'meta').get('_fastmcp', {}).get('tags', []))
-        return len(self.tags & tool_tags) > 0
+        return len(valid_tool_tags & tool_tags) > 0
 
     async def get_tools(
             self,
@@ -51,7 +56,7 @@ class HonuToolSet(BaseToolset):
         tools=[]
         async with ((client)):
             for tool in await client.list_tools():
-                if self._is_valid_tool(tool):
+                if self._is_valid_tool(self.tags, tool):
                     tools.append(FunctionTool(create_tool(tool.name,tool.description)))
 
         return tools

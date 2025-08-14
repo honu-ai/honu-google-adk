@@ -31,7 +31,7 @@ To connect your agent to the Honu platform, you need to:
 Create a `.env` file in your project root:
 
 ```bash
-MCP_HOST="http://localhost:8282/mcp"
+MCP_HOST="http://mcp.honu.ai/mcp"
 PORT=7999  # Optional: defaults to 7999 locally, uses Cloud Run's PORT in production
 ```
 
