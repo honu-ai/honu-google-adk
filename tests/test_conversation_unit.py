@@ -1,6 +1,6 @@
 import jwt
 
-from agent_router.conversation_utils import ConversationClient
+from honu_google_adk.agent_router.conversation_utils import ConversationClient
 
 
 def test__get_char_url(monkeypatch):
