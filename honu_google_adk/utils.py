@@ -1,10 +1,14 @@
 import os
 
+import structlog
 from fastmcp import Client
 from fastmcp.client import StreamableHttpTransport
 from google.adk.tools import ToolContext
 
+logger = structlog.get_logger(__name__)
 MCP_HOST = os.getenv("MCP_HOST", None)
+
+logger.info(f"MCP host: {MCP_HOST}")
 
 def _get_unauth_client():
     # In-memory server (ideal for testing)
