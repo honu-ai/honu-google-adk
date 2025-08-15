@@ -1,6 +1,6 @@
 import traceback
 from fastapi import HTTPException
-from typing import Generator
+from typing import Iterator
 
 import httpx
 from google.adk.cli.adk_web_server import AgentRunRequest
@@ -37,7 +37,7 @@ class LocalSessionClient:
         if not response.is_success:
             raise Exception(f"Delete session came back with status: {response.status_code}: {response.text}")
 
-    def run_sse(self, request: AgentRunRequest) -> Generator[ServerSentEvent]:
+    def run_sse(self, request: AgentRunRequest) -> Iterator[ServerSentEvent]:
         try:
             with connect_sse(self.client, 'POST', '/run_sse', json=request.model_dump()) as event_source:
                 for sse in event_source.iter_sse():
