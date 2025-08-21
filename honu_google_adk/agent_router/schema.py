@@ -103,3 +103,8 @@ class MessageNotification(BaseModel):
     conversation: Conversation
     message: HAPMessage
 
+
+class AgentDisplayInformation(BaseModel):
+    name: str
+    avatar_url: str | None
+    description: str

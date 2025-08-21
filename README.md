@@ -102,6 +102,20 @@ root_agent = Agent(
 )
 ```
 
+### 3. Add Display Information for Honu Chat
+Adding a dictionary of agent_name -> AgentDisplayInformation to your HonuAgentRouter can allow you to customise how your agent shows up in the Platform.
+
+```python
+display_info = {
+    'honu_trello_agent': AgentDisplayInformation(
+        name='Trello Helper',
+        avatar_url='<url for a picture for the agent>' or None,
+        description='This is an agent to help you organise and manage your Trello board.',
+    ),
+}
+app.include_router(HonuAgentRouter(PORT, display_info).agent_router)
+```
+
 ## Deployment
 
 ### Cloud Run Deployment

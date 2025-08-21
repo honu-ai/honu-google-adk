@@ -9,14 +9,15 @@ from starlette import status
 from starlette.exceptions import HTTPException
 
 from .conversation_utils import ConversationClient
-from .schema import InitEngagement, DisengageAgent, MessageNotification, TextMessage
+from .schema import InitEngagement, DisengageAgent, MessageNotification, TextMessage, AgentDisplayInformation
 from .utils import LocalSessionClient
 
 
 class HonuAgentRouter:
 
-    def __init__(self, port: int):
+    def __init__(self, port: int, agent_display_cards: dict[str, AgentDisplayInformation] | None = None):
         self.agent_router = self._agent_engagement_api()
+        self.display_info = agent_display_cards or {}
 
         # store token
         self.local_session_client = LocalSessionClient(port)
@@ -28,6 +29,18 @@ class HonuAgentRouter:
         @api.get("/health_check/ping/{value}", status_code=status.HTTP_200_OK)
         def ping_pong(value: str) -> str:
             return value
+
+        @api.get('/cards/{app_name}/', include_in_schema=False)
+        @api.get('/cards/{app_name}')
+        def get_agent_card(app_name: str) -> AgentDisplayInformation:
+            card = self.display_info.get(app_name)
+            if card is None:
+                card = AgentDisplayInformation(
+                    name=app_name,
+                    avatar_url=None,
+                    description='An Agent built to help you!',
+                )
+            return card
 
         @api.post("/agents/{agent_id}/init_engagement/", status_code=status.HTTP_201_CREATED, include_in_schema=False)
         @api.post("/agents/{agent_id}/init_engagement", status_code=status.HTTP_201_CREATED)
