@@ -6,7 +6,7 @@ authors = ["gonzalogacc <gonzalogacc@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">3.11,<=3.13"
+python = "^3.11"
 google-adk = "^1.8.0"
 fastmcp = "^2.10.6"
 python-dotenv = "^1.1.1"
