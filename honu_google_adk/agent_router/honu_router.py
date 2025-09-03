@@ -5,12 +5,24 @@ from fastapi import APIRouter
 from google.adk.cli.adk_web_server import AgentRunRequest
 from google.adk.events import Event
 from google.genai.types import Part, Content
+from pydantic import BaseModel
 from starlette import status
 from starlette.exceptions import HTTPException
 
 from .conversation_utils import ConversationClient
 from .schema import InitEngagement, DisengageAgent, MessageNotification, TextMessage, AgentDisplayInformation
 from .utils import LocalSessionClient
+
+
+class SignaturePayload(BaseModel):
+    agent_url: str
+    app_name: str
+    model_ref: str
+
+    @classmethod
+    def from_signature(cls, signature: str) -> 'SignaturePayload':
+        payload = json.loads(base64.b64decode(signature.removeprefix('external_agent/').encode()).decode())
+        return cls(**payload)
 
 
 class HonuAgentRouter:
@@ -47,10 +59,8 @@ class HonuAgentRouter:
         def init_engagement(agent_id: str, init: InitEngagement) -> None:
             conv_client = ConversationClient.get_instance()
             # Get the data from the agent signature for making the chat name
-            signature_payload = base64.b64decode(init.agent_signature.removeprefix('external_agent/').encode()).decode().split('/')
-            url = f'{signature_payload[0]}//{signature_payload[2]}'
-            app_name = signature_payload[3]
-            conversation_name = f'{app_name} @ {url}'
+            sig_payload = SignaturePayload.from_signature(init.agent_signature)
+            conversation_name = f'{sig_payload.app_name} @ {sig_payload.agent_url}'
             conv = conv_client.create_conversation(init.auth_token, init.mdl_ref, name=conversation_name)
             session_id = conv.conversation_id
 
@@ -79,13 +89,13 @@ class HonuAgentRouter:
         @api.post("/messages", status_code=status.HTTP_200_OK)
         def message_notification(payload: MessageNotification):
             """ With a message notification now we need to invoke the llm"""
-            app_name = base64.b64decode(payload.agent_signature.removeprefix('external_agent/').encode()).decode().split('/')[3]
+            sig_payload = SignaturePayload.from_signature(payload.agent_signature)
             conversation_client = ConversationClient.get_instance()
             conv = payload.conversation
-            token = self.local_session_client.get_token(app_name, conv.conversation_id)
+            token = self.local_session_client.get_token(sig_payload.app_name, conv.conversation_id)
             conversation_client.set_chat_status(token, conv, 'thinking')
             run_request = AgentRunRequest(
-                app_name=app_name,
+                app_name=sig_payload.app_name,
                 user_id=self.USER_ID,
                 session_id=payload.conversation.conversation_id,
                 new_message=Content(
@@ -129,5 +139,3 @@ class HonuAgentRouter:
             conversation_client.set_chat_status(token, conv, None)
 
         return api
-
-
