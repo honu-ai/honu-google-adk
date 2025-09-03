@@ -49,7 +49,7 @@ class LocalSessionClient:
     def get_session_state(self, app_name: str, session_id: str) -> dict:
         response = self.client.get(f'/apps/{app_name}/users/{self.USER_ID}/sessions/{session_id}')
         if response.status_code != status.HTTP_200_OK:
-            raise Exception("Error reading state")
+            raise Exception(f"Get session came back with status: {response.status_code}: {response.text}")
         return response.json()['state']
 
     def get_token(self, app_name: str, session_id: str) -> str | None:
