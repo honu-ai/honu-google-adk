@@ -60,8 +60,7 @@ class HonuAgentRouter:
             conv_client = ConversationClient.get_instance()
             # Get the data from the agent signature for making the chat name
             sig_payload = SignaturePayload.from_signature(init.agent_signature)
-            conversation_name = f'{sig_payload.app_name} @ {sig_payload.agent_url}'
-            conv = conv_client.create_conversation(init.auth_token, init.mdl_ref, name=conversation_name)
+            conv = conv_client.create_conversation(init.auth_token, init.mdl_ref, name=sig_payload.app_name)
             session_id = conv.conversation_id
 
             payload = dict(
