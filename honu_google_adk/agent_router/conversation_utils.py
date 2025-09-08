@@ -45,11 +45,10 @@ class ConversationClient:
     def __init__(self):
         raise NotImplementedError()
 
-    @staticmethod
-    def _ping_conversation_server(base_url: str) -> bool:
+    def _ping_conversation_server(self, base_url: str) -> bool:
         try:
             # self._get_client(base_url, "").get('/')
-            httpx.get(base_url)
+            httpx.get(base_url, timeout=self.chat_timeout)
             return True
         except:
             return False
