@@ -2,7 +2,7 @@ import base64
 
 import json
 from fastapi import APIRouter
-from google.adk.cli.adk_web_server import AgentRunRequest
+from google.adk.cli.adk_web_server import RunAgentRequest
 from google.adk.events import Event
 from google.genai.types import Part, Content
 from pydantic import BaseModel
@@ -93,7 +93,7 @@ class HonuAgentRouter:
             conv = payload.conversation
             token = self.local_session_client.get_token(sig_payload.app_name, conv.conversation_id)
             conversation_client.set_chat_status(token, conv, 'thinking')
-            run_request = AgentRunRequest(
+            run_request = RunAgentRequest(
                 app_name=sig_payload.app_name,
                 user_id=self.USER_ID,
                 session_id=payload.conversation.conversation_id,
