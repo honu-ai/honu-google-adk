@@ -76,11 +76,13 @@ class HonuToolSet(BaseToolset):
             async with client:
                 # Execute operations
                 result = await client.call_tool(function_name, args)
-
-            return dict(
-                message='success',
-                artefacts=json.loads(result.content[0].text)
-            )
+            response = {'message': 'success'}
+            if result.content:
+                try:
+                    response['artefacts'] = json.loads(result.content[0].text)
+                except:
+                    print(result.content[0].text)
+            return response
 
         _inner.__doc__ = function_description
         _inner.__name__ = function_name
