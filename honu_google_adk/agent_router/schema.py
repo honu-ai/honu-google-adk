@@ -108,3 +108,9 @@ class AgentDisplayInformation(BaseModel):
     name: str
     avatar_url: str | None
     description: str
+
+
+class GADKAgentSchedulerPayload(BaseModel):
+    app_name: str
+    session_id: str
+    message: str

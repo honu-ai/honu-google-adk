@@ -11,7 +11,7 @@ from starlette import status
 from starlette.exceptions import HTTPException
 
 from .conversation_utils import ConversationClient
-from .schema import HAPMessage, InitEngagement, DisengageAgent, MessageNotification, TextMessage, AgentDisplayInformation
+from .schema import GADKAgentSchedulerPayload, HAPMessage, InitEngagement, DisengageAgent, MessageNotification, TextMessage, AgentDisplayInformation
 from .utils import LocalSessionClient
 
 
@@ -150,5 +150,38 @@ class HonuAgentRouter:
                 except:
                     pass
                 self.local_session_client.delete_session(agent_id, conv_id)
+
+        @api.post("/scheduler/", status_code=status.HTTP_200_OK, include_in_schema=False)
+        @api.post("/scheduler", status_code=status.HTTP_200_OK)
+        def run_task(payload: GADKAgentSchedulerPayload) -> str:
+            # Check that the session and app_name combo are correct
+            try:
+                session_state = self.local_session_client.get_session_state(payload.app_name, payload.session_id)
+            except:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f'App Name {payload.app_name} and Session ID {payload.session_id} does not exist')
+
+            # Load the conversation to get the agent's signature in here
+            conversation_client = ConversationClient.get_instance()
+            convs = [
+                c
+                for c in conversation_client.get_conversations_for_model(session_state.get('token'), session_state.get('model_ref'))
+                if c.conversation_id == payload.session_id
+            ]
+            if not convs:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Could not find Conversation {payload.session_id} for model_ref {session_state.get("model_ref")}')
+            conv = convs[0]
+
+            # Send the message to the agent
+            fake_message = MessageNotification(
+                agent_signature=conv.metadata.created_by,
+                conversation=conv,
+                message=HAPMessage(
+                    message_id='',
+                    author_id='',
+                    timestamp=datetime.now(timezone.utc),
+                    payload=TextMessage(body=payload.message),
+                )
+            )
+            message_notification(fake_message)
 
         return api

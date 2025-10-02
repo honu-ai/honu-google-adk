@@ -12,7 +12,6 @@ class LocalSessionClient:
 
     def __init__(self, port):
         AGENT_URL = f"http://localhost:{port}"
-        self.AGENT_NAME = "multi_tool_agent"
         self.USER_ID = "user"  # could be the model ref for now
 
         headers = {
