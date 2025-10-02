@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from starlette import status
 from starlette.exceptions import HTTPException
 
+from honu_google_adk.agent_router.tasks_utils import ModelTasksAPIClient
+
 from .conversation_utils import ConversationClient
 from .schema import GADKAgentSchedulerPayload, HAPMessage, InitEngagement, DisengageAgent, MessageNotification, TextMessage, AgentDisplayInformation
 from .utils import LocalSessionClient
@@ -145,6 +147,15 @@ class HonuAgentRouter:
             conversation_client = ConversationClient.get_instance()
             sessions = self.local_session_client.get_sessions_for_model_ref(agent_id, disengage.mdl_ref)
             for token, conv_id in sessions:
+
+                # Delete all the tasks
+                client = ModelTasksAPIClient(token, disengage.mdl_ref)
+                try:
+                    client.delete_all_my_tasks()
+                except:
+                    print('Could not delete tasks for model ref', disengage.mdl_ref)
+
+                # Then delete all the conversations
                 try:
                     conversation_client.delete_conversation(token, disengage.mdl_ref, conv_id)
                 except:
