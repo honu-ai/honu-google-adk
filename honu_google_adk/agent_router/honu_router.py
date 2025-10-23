@@ -9,6 +9,7 @@ from google.genai.types import Part, Content
 from pydantic import BaseModel
 from starlette import status
 from starlette.exceptions import HTTPException
+import structlog
 
 from honu_google_adk.agent_router.tasks_utils import ModelTasksAPIClient
 
@@ -33,6 +34,7 @@ class HonuAgentRouter:
     def __init__(self, port: int, agent_display_cards: dict[str, AgentDisplayInformation] | None = None):
         self.agent_router = self._agent_engagement_api()
         self.display_info = agent_display_cards or {}
+        self.logger = structlog.get_logger('honu_agent_router')
 
         # store token
         self.local_session_client = LocalSessionClient(port)
@@ -81,6 +83,7 @@ class HonuAgentRouter:
                 for part in message.content.parts:
                     if part.function_call:
                         conversation_client.set_chat_status(token, conv, f'running tool: {part.function_call.name}')
+                        self.logger.info('function_call_event', **part.function_call.model_dump())
                     elif part.text:
                         conversation_client.send_message(
                             token,
@@ -89,6 +92,7 @@ class HonuAgentRouter:
                         )
                     elif part.function_response:
                         conversation_client.set_chat_status(token, conv, 'thinking')
+                        self.logger.info('function_response_event', **part.function_response.model_dump())
                     else:
                         print('Unhandled message type')
                         print(message)
