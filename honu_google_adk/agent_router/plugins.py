@@ -77,6 +77,7 @@ class HonuConversationPlugin(BasePlugin):
         if agent_name is None:
             return
 
+        self.logger.info('current_agent_state', states=invocation_context.agent_states)
         state = invocation_context.agent_states[agent_name]
         token = state.get('token')
         model_ref = state.get('model_ref')
