@@ -17,8 +17,8 @@ from honu_google_adk.agent_router.schema import Conversation, TextMessage
 class HonuConversationPlugin(BasePlugin):
     """Plugin that loops messages back into the HAP Conversation server"""
 
-    def __init__(self):
-        super().__init__('HonuConversationPlugin')
+    def __init__(self, name: str):
+        super().__init__(name)
         self.conversation_client = ConversationClient.get_instance()
         self.session_id_to_agents = {}
         self.logger = structlog.get_logger('honu_google_adk.honu_conversation_plugin')
