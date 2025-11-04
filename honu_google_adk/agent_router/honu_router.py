@@ -48,10 +48,6 @@ class HonuAgentRouter:
         def message_notification(payload: MessageNotification):
             """ With a message notification now we need to invoke the llm"""
             sig_payload = SignaturePayload.from_signature(payload.agent_signature)
-            conversation_client = ConversationClient.get_instance()
-            conv = payload.conversation
-            token = self.local_session_client.get_token(sig_payload.app_name, conv.conversation_id)
-            conversation_client.set_chat_status(token, conv, 'thinking')
             run_request = RunAgentRequest(
                 app_name=sig_payload.app_name,
                 user_id=self.USER_ID,
@@ -62,41 +58,7 @@ class HonuAgentRouter:
                 ),
                 streaming=False,
             )
-
-            for sse in self.local_session_client.run_sse(run_request):
-                if sse.event != 'message':
-                    continue
-
-                # Capture response and send to chat
-                try:
-                    message = Event(**json.loads(sse.data))
-                except:
-                    print("ERROR DURING RUN")
-                    print(sse)
-                    print("----------")
-                    conversation_client.send_message(
-                        token,
-                        conv,
-                        TextMessage(body='An error occurred handling your latest message. Please try again.')
-                    )
-                    continue
-                for part in message.content.parts:
-                    if part.function_call:
-                        conversation_client.set_chat_status(token, conv, f'running tool: {part.function_call.name}')
-                        self.logger.info('function_call_event', **part.function_call.model_dump())
-                    elif part.text:
-                        conversation_client.send_message(
-                            token,
-                            conv,
-                            TextMessage(body=part.text)
-                        )
-                    elif part.function_response:
-                        conversation_client.set_chat_status(token, conv, 'thinking')
-                        self.logger.info('function_response_event', **part.function_response.model_dump())
-                    else:
-                        print('Unhandled message type')
-                        print(message)
-            conversation_client.set_chat_status(token, conv, None)
+            self.local_session_client.run(run_request)
 
         @api.get("/health_check/ping/{value}", status_code=status.HTTP_200_OK)
         def ping_pong(value: str) -> str:
@@ -170,33 +132,21 @@ class HonuAgentRouter:
         @api.post("/scheduler", status_code=status.HTTP_200_OK)
         def run_task(payload: GADKAgentSchedulerPayload) -> str:
             # Check that the session and app_name combo are correct
-            try:
-                session_state = self.local_session_client.get_session_state(payload.app_name, payload.session_id)
-            except:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f'App Name {payload.app_name} and Session ID {payload.session_id} does not exist')
-
-            # Load the conversation to get the agent's signature in here
-            conversation_client = ConversationClient.get_instance()
-            convs = [
-                c
-                for c in conversation_client.get_conversations_for_model(session_state.get('token'), session_state.get('model_ref'))
-                if c.conversation_id == payload.session_id
-            ]
-            if not convs:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Could not find Conversation {payload.session_id} for model_ref {session_state.get("model_ref")}')
-            conv = convs[0]
-
-            # Send the message to the agent
-            fake_message = MessageNotification(
-                agent_signature=conv.metadata.created_by,
-                conversation=conv,
-                message=HAPMessage(
-                    message_id='',
-                    author_id='',
-                    timestamp=datetime.now(timezone.utc),
-                    payload=TextMessage(body=payload.message),
-                )
+            sig_payload = SignaturePayload.from_signature(payload.agent_signature)
+            run_request = RunAgentRequest(
+                app_name=sig_payload.app_name,
+                user_id=self.USER_ID,
+                session_id=payload.conversation.conversation_id,
+                new_message=Content(
+                    parts=[Part(text=payload.message)],
+                    role="user",
+                ),
+                streaming=False,
             )
-            message_notification(fake_message)
+            try:
+                self.local_session_client.run(run_request)
+                return 'success'
+            except Exception as e:
+                return str(e.args)
 
         return api

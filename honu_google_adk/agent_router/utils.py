@@ -37,6 +37,11 @@ class LocalSessionClient:
         if not response.is_success:
             raise Exception(f"Delete session came back with status: {response.status_code}: {response.text}")
 
+    def run(self, request: RunAgentRequest):
+        response = self.client.post('/run', json=request.model_dump())
+        if not response.is_success:
+            raise Exception(f'Run request status was not successful. Received {response.status_code}: {response.text}')
+
     def run_sse(self, request: RunAgentRequest) -> Iterator[ServerSentEvent]:
         try:
             with connect_sse(self.client, 'POST', '/run_sse', json=request.model_dump()) as event_source:
