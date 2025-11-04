@@ -1,4 +1,5 @@
 import traceback
+from collections import defaultdict
 from typing import Optional, Any
 
 import structlog
@@ -20,7 +21,8 @@ class HonuConversationPlugin(BasePlugin):
     def __init__(self, name: str):
         super().__init__(name)
         self.conversation_client = ConversationClient.get_instance()
-        self.session_id_to_agents = {}
+        self.session_ids_to_agent_names = {}
+        self.agent_session_states = defaultdict(dict)  # agent_name -> session_id -> state
         self.logger = structlog.get_logger('honu_google_adk.honu_conversation_plugin')
 
     def _get_conv_for_session_id(self, token: str, model_ref: str, session_id: str) -> Conversation | None:
@@ -35,8 +37,9 @@ class HonuConversationPlugin(BasePlugin):
         return convs[0]
 
     async def before_agent_callback(self, *, agent: BaseAgent, callback_context: CallbackContext) -> Optional[types.Content]:
-        # Save the session id to agent name
-        self.session_id_to_agents[callback_context.session.id] = agent.name
+        # Save the session state for use in event hook
+        self.session_ids_to_agent_names[callback_context.session.id] = agent.name
+        self.agent_session_states[agent.name][callback_context.session.id] = callback_context.state
 
         token = callback_context.state.get('token')
         model_ref = callback_context.state.get('model_ref')
@@ -53,9 +56,6 @@ class HonuConversationPlugin(BasePlugin):
         self.conversation_client.set_chat_status(token, conversation, 'thinking')
 
     async def after_agent_callback(self, *, agent: BaseAgent, callback_context: CallbackContext) -> Optional[types.Content]:
-        # Save the session id to agent name
-        self.session_id_to_agents[callback_context.session.id] = agent.name
-
         # Check for token and model ref in state
         token = callback_context.state.get('token')
         model_ref = callback_context.state.get('model_ref')
@@ -73,12 +73,11 @@ class HonuConversationPlugin(BasePlugin):
 
     async def on_event_callback(self, *, invocation_context: InvocationContext, event: Event) -> Optional[Event]:
         session_id = invocation_context.session.id
-        agent_name = self.session_id_to_agents.get(session_id)
+        agent_name = self.session_ids_to_agent_names.get(session_id)
         if agent_name is None:
             return
 
-        self.logger.info('current_agent_state', states=invocation_context.agent_states)
-        state = invocation_context.agent_states[agent_name]
+        state = self.agent_session_states[agent_name].get(session_id, {})
         token = state.get('token')
         model_ref = state.get('model_ref')
         if token is None or model_ref is None:
