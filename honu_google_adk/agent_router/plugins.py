@@ -69,7 +69,7 @@ class HonuConversationPlugin(BasePlugin):
             return
 
         # Set the status for the conversation
-        self.conversation_client.set_chat_status(token, conversation, 'thinking')
+        self.conversation_client.set_chat_status(token, conversation, None)
 
     async def on_event_callback(self, *, invocation_context: InvocationContext, event: Event) -> Optional[Event]:
         session_id = invocation_context.session.id
