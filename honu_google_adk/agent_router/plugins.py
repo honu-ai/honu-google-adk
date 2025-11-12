@@ -66,6 +66,10 @@ class HonuConversationPlugin(BasePlugin):
         self.conversation_client.set_chat_status(token, conversation, None)
 
     async def on_event_callback(self, *, invocation_context: InvocationContext, event: Event) -> Optional[Event]:
+        if event.content is None:
+            # Don't need to do anything if there's no content
+            return
+
         session_id = invocation_context.session.id
         state = invocation_context.session.state
         token = state.get('token')
