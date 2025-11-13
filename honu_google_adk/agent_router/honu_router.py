@@ -135,7 +135,7 @@ class HonuAgentRouter:
             run_request = RunAgentRequest(
                 app_name=payload.app_name,
                 user_id=self.USER_ID,
-                session_id=payload.conversation.conversation_id,
+                session_id=payload.session_id,
                 new_message=Content(
                     parts=[Part(text=payload.message)],
                     role="user",
