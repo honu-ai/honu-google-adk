@@ -132,9 +132,8 @@ class HonuAgentRouter:
         @api.post("/scheduler", status_code=status.HTTP_200_OK)
         def run_task(payload: GADKAgentSchedulerPayload) -> str:
             # Check that the session and app_name combo are correct
-            sig_payload = SignaturePayload.from_signature(payload.agent_signature)
             run_request = RunAgentRequest(
-                app_name=sig_payload.app_name,
+                app_name=payload.app_name,
                 user_id=self.USER_ID,
                 session_id=payload.conversation.conversation_id,
                 new_message=Content(
