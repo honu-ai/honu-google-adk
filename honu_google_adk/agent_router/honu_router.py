@@ -102,7 +102,7 @@ class HonuAgentRouter:
                     message_id='',
                     author_id='',
                     timestamp=datetime.now(timezone.utc),
-                    payload=TextMessage(body='You have just been engaged by a User. Please introduce yourself to them.'),
+                    payload=TextMessage(body='honulabs_system_message: You have just been engaged by a User. Please introduce yourself to them.'),
                 )
             )
             message_notification(fake_message)
