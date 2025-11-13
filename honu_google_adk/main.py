@@ -82,7 +82,7 @@ class HonuToolSet(BaseToolset):
                     response['artefacts'] = json.loads(result.content[0].text)
                 except:
                     print(result.content[0].text)
-            print('received response', response, 'for tool', function_name)
+            print('received response', response, 'for tool', function_name, 'tool_result', result)
             return response
 
         _inner.__doc__ = function_description
