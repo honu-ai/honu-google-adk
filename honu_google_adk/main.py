@@ -21,6 +21,7 @@ class HonuToolSet(BaseToolset):
     def _get_unauth_client(self):
         client = Client(
             transport=StreamableHttpTransport(self.mcp_host),
+            timeout=600,
         )
         return client
 
