@@ -1,6 +1,7 @@
 import base64
 
 import json
+import jwt
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from google.adk.cli.adk_web_server import RunAgentRequest
@@ -31,12 +32,13 @@ class SignaturePayload(BaseModel):
 
 class HonuAgentRouter:
 
-    def __init__(self, port: int, agent_display_cards: dict[str, AgentDisplayInformation] | None = None):
+    def __init__(self, hostname: str, port: int, agent_display_cards: dict[str, AgentDisplayInformation] | None = None):
         self.agent_router = self._agent_engagement_api()
         self.display_info = agent_display_cards or {}
         self.logger = structlog.get_logger('honu_agent_router')
 
         # store token
+        self.hostname = hostname
         self.local_session_client = LocalSessionClient(port)
         self.USER_ID = "user"  # could be the model ref for now
 
@@ -106,6 +108,21 @@ class HonuAgentRouter:
                 )
             )
             message_notification(fake_message)
+
+            # Also create a task to run the brainbeat
+            tasks_client = ModelTasksAPIClient(init.auth_token, init.mdl_ref)
+            task_payload = GADKAgentSchedulerPayload(
+                app_name=agent_id,
+                session_id=session_id,
+                message='honulabs_system_message: This is an automated system message. It is time to run your regular "brainbeat", where you check on the user\'s data, and perform any daily tasks you are instructed to do. Write your message as though you are coming directly to the User.',
+            )
+            tasks_client.create_task(
+                task_payload.model_dump(),
+                f'{agent_id} Brainbeat',
+                f'Brainbeat for {agent_id}.',
+                '0 9 * * *',
+                f'{self.hostname}/hapra/v1/scheduler',
+            )
 
         @api.post("/agents/{agent_id}/disengage/", status_code=status.HTTP_200_OK, include_in_schema=False)
         @api.post("/agents/{agent_id}/disengage", status_code=status.HTTP_200_OK)

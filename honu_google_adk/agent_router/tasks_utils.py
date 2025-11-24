@@ -42,6 +42,20 @@ class ModelTasksAPIClient:
     def auth_header(self):
         return {"Authorization": f"Bearer {self.auth_token}"}
 
+    def create_task(self, payload, name, description, cron_str, target_url):
+        _, domain_id, model_id = self.model_ref.split('|')
+        self.client.post(
+            f'/v1/domains/{domain_id}/models/{model_id}/scheduling',
+            json={
+                'name': name,
+                'description': description,
+                'cron_string': cron_str,
+                'target_url': target_url,
+                'payload': payload,
+                'http_headers': {},
+            }
+        )
+
     def delete_all_my_tasks(self):
         """
         List all tasks in a given model
