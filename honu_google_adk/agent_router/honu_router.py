@@ -32,9 +32,16 @@ class SignaturePayload(BaseModel):
 
 class HonuAgentRouter:
 
-    def __init__(self, hostname: str, port: int, agent_display_cards: dict[str, AgentDisplayInformation] | None = None):
+    def __init__(
+            self,
+            hostname: str,
+            port: int,
+            agent_display_cards: dict[str, AgentDisplayInformation] | None = None,
+            agents_with_brainbeats: list[str] | None = None
+    ):
         self.agent_router = self._agent_engagement_api()
         self.display_info = agent_display_cards or {}
+        self.create_brainbeats_for = set(agents_with_brainbeats or [])
         self.logger = structlog.get_logger('honu_agent_router')
 
         # store token
@@ -110,6 +117,8 @@ class HonuAgentRouter:
             message_notification(fake_message)
 
             # Also create a task to run the brainbeat
+            if agent_id not in self.create_brainbeats_for:
+                return
             tasks_client = ModelTasksAPIClient(init.auth_token, init.mdl_ref)
             task_payload = GADKAgentSchedulerPayload(
                 app_name=agent_id,
