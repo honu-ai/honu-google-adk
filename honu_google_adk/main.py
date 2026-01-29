@@ -1,30 +1,32 @@
 from google.genai import types
-from typing_extensions import override
-
 import json
-from mcp import Tool
-from typing import Optional, Callable, Any, Union
-
 from fastmcp import Client
 from fastmcp.client import StreamableHttpTransport
 from google.adk.agents.readonly_context import ReadonlyContext
-from google.adk.tools import BaseTool, FunctionTool
+from google.adk.tools import BaseTool
 from google.adk.tools import ToolContext
 from google.adk.tools.base_toolset import BaseToolset
+from google.genai import types
+from mcp import Tool
+from typing import Optional, Any
+from typing_extensions import override
 
 
-class MCPFunctionTool(FunctionTool):
+class HonuMCPFunctionTool(BaseTool):
     mcp_tool: Tool
+    mcp_host: str
 
     def __init__(
             self,
-            func: Callable[..., Any],
-            *,
-            require_confirmation: Union[bool, Callable[..., bool]] = False,
             mcp_tool: Tool,
+            mcp_host: str,
     ):
-        super().__init__(func, require_confirmation=require_confirmation)
+        super().__init__(
+            name=mcp_tool.name,
+            description=mcp_tool.description,
+        )
         self.mcp_tool = mcp_tool
+        self.mcp_host = mcp_host
 
     @override
     def _get_declaration(self) -> Optional[types.FunctionDeclaration]:
@@ -35,6 +37,39 @@ class MCPFunctionTool(FunctionTool):
             response_json_schema=self.mcp_tool.outputSchema,
         )
 
+    def _get_client(self, tool_context: ToolContext):
+        token = tool_context.state.get('token')
+        model_ref = tool_context.state.get('model_ref')
+
+        # In-memory server (ideal for testing)
+        client = Client(
+            transport=StreamableHttpTransport(
+                self.mcp_host,
+                headers={"X-HONU-MODEL": model_ref},
+            ),
+            auth=token,
+        )
+        return client
+
+    @override
+    async def run_async(
+      self, *, args: dict[str, Any], tool_context: ToolContext
+  ) -> Any:
+        client = self._get_client(tool_context)
+        print('calling', self.mcp_tool.name, 'with arguments', args)
+
+        async with client:
+            # Execute operations
+            result = await client.call_tool(self.mcp_tool.name, args)
+        response: dict[str, Any] = {'success': True}
+        if result.content:
+            try:
+                response['artefacts'] = json.loads(result.content[0].text)
+            except:
+                response['text'] = result.content[0].text
+                response['error_msg'] = 'Could not unwrap response into JSON. Plaintext response has been provided instead.'
+        print('received response', response, 'for tool', self.mcp_tool.name, 'tool_result', result)
+        return response
 
 class HonuToolSet(BaseToolset):
     tags: set[str] | None = None
@@ -52,23 +87,8 @@ class HonuToolSet(BaseToolset):
         )
         return client
 
-    def _get_client(self, tool_context: ToolContext):
-        token = tool_context.state.get('token')
-        model_ref = tool_context.state.get('model_ref')
-
-        # In-memory server (ideal for testing)
-        client = Client(
-            transport=StreamableHttpTransport(
-                self.mcp_host,
-                headers={"X-HONU-MODEL": model_ref},
-            ),
-            auth=token,
-        )
-        return client
-
-    @staticmethod
-    def _is_valid_tool(valid_tool_tags: set[str], tool: Tool) -> bool:
-        if valid_tool_tags is None:
+    def _is_valid_tool(self, tool: Tool) -> bool:
+        if self.tags is None:
             return True
 
         if not hasattr(tool, "meta"):
@@ -78,46 +98,20 @@ class HonuToolSet(BaseToolset):
             return False
 
         tool_tags = set(getattr(tool, 'meta').get('_fastmcp', {}).get('tags', []))
-        return len(valid_tool_tags & tool_tags) > 0
+        return len(self.tags & tool_tags) > 0
 
     async def get_tools(
             self,
             readonly_context: Optional[ReadonlyContext] = None,
     ) -> list[BaseTool]:
         client = self._get_unauth_client()
-        tools=[]
         async with client:
-            for tool in await client.list_tools():
-                if self._is_valid_tool(self.tags, tool):
-                    tools.append(
-                        FunctionTool(
-                            self.create_tool(tool.name, tool.description)
-                        )
-                    )
+            return [
+                HonuMCPFunctionTool(tool, self.mcp_host)
+                for tool in (await client.list_tools())
+                if self._is_valid_tool(tool)
+            ]
 
-        return tools
-
-    def create_tool(self, function_name: str, function_description: str):
-        async def _inner(tool_context: ToolContext, **kwargs):
-            client = self._get_client(tool_context)
-            print('calling', function_name, 'with arguments', kwargs)
-
-            async with client:
-                # Execute operations
-                result = await client.call_tool(function_name, kwargs)
-            response = {'message': 'success'}
-            if result.content:
-                try:
-                    response['artefacts'] = json.loads(result.content[0].text)
-                except:
-                    print(result.content[0].text)
-            print('received response', response, 'for tool', function_name, 'tool_result', result)
-            return response
-
-        _inner.__doc__ = function_description
-        _inner.__name__ = function_name
-
-        return _inner
 
     async def close(self):
         return None
