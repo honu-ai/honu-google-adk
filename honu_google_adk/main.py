@@ -1,5 +1,9 @@
+from google.genai import types
+from typing_extensions import override
+
 import json
-from typing import Optional
+from mcp import Tool
+from typing import Optional, Callable, Any, Union
 
 from fastmcp import Client
 from fastmcp.client import StreamableHttpTransport
@@ -7,6 +11,29 @@ from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import BaseTool, FunctionTool
 from google.adk.tools import ToolContext
 from google.adk.tools.base_toolset import BaseToolset
+
+
+class MCPFunctionTool(FunctionTool):
+    mcp_tool: Tool
+
+    def __init__(
+            self,
+            func: Callable[..., Any],
+            *,
+            require_confirmation: Union[bool, Callable[..., bool]] = False,
+            mcp_tool: Tool,
+    ):
+        super().__init__(func, require_confirmation=require_confirmation)
+        self.mcp_tool = mcp_tool
+
+    @override
+    def _get_declaration(self) -> Optional[types.FunctionDeclaration]:
+        return types.FunctionDeclaration(
+            name=self.mcp_tool.name,
+            description=self.mcp_tool.description,
+            parameters_json_schema=self.mcp_tool.inputSchema,
+            response_json_schema=self.mcp_tool.outputSchema,
+        )
 
 
 class HonuToolSet(BaseToolset):
@@ -40,7 +67,7 @@ class HonuToolSet(BaseToolset):
         return client
 
     @staticmethod
-    def _is_valid_tool(valid_tool_tags: set[str], tool: BaseTool) -> bool:
+    def _is_valid_tool(valid_tool_tags: set[str], tool: Tool) -> bool:
         if valid_tool_tags is None:
             return True
 
@@ -64,19 +91,19 @@ class HonuToolSet(BaseToolset):
                 if self._is_valid_tool(self.tags, tool):
                     tools.append(
                         FunctionTool(
-                            self.create_tool(tool.name,tool.description)
+                            self.create_tool(tool.name, tool.description)
                         )
                     )
 
         return tools
 
     def create_tool(self, function_name: str, function_description: str):
-        async def _inner(args: dict, tool_context: ToolContext):
+        async def _inner(tool_context: ToolContext, **kwargs):
             client = self._get_client(tool_context)
 
             async with client:
                 # Execute operations
-                result = await client.call_tool(function_name, args)
+                result = await client.call_tool(function_name, kwargs)
             response = {'message': 'success'}
             if result.content:
                 try:
