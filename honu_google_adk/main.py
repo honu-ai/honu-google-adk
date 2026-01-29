@@ -100,6 +100,7 @@ class HonuToolSet(BaseToolset):
     def create_tool(self, function_name: str, function_description: str):
         async def _inner(tool_context: ToolContext, **kwargs):
             client = self._get_client(tool_context)
+            print('calling', function_name, 'with arguments', kwargs)
 
             async with client:
                 # Execute operations
