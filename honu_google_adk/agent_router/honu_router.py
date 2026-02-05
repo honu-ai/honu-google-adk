@@ -1,4 +1,5 @@
 import base64
+import httpx
 
 import json
 import jwt
@@ -54,7 +55,7 @@ class HonuAgentRouter:
 
         @api.post("/messages/", status_code=status.HTTP_200_OK, include_in_schema=False)
         @api.post("/messages", status_code=status.HTTP_200_OK)
-        def message_notification(payload: MessageNotification):
+        async def message_notification(payload: MessageNotification):
             """ With a message notification now we need to invoke the llm"""
             sig_payload = SignaturePayload.from_signature(payload.agent_signature)
             run_request = RunAgentRequest(
@@ -67,15 +68,15 @@ class HonuAgentRouter:
                 ),
                 streaming=False,
             )
-            self.local_session_client.run(run_request)
+            await self.local_session_client.run(run_request)
 
         @api.get("/health_check/ping/{value}", status_code=status.HTTP_200_OK)
-        def ping_pong(value: str) -> str:
+        async def ping_pong(value: str) -> str:
             return value
 
         @api.get('/cards/{app_name}/', include_in_schema=False)
         @api.get('/cards/{app_name}')
-        def get_agent_card(app_name: str) -> AgentDisplayInformation:
+        async def get_agent_card(app_name: str) -> AgentDisplayInformation:
             card = self.display_info.get(app_name)
             if card is None:
                 card = AgentDisplayInformation(
@@ -87,7 +88,7 @@ class HonuAgentRouter:
 
         @api.post("/agents/{agent_id}/init_engagement/", status_code=status.HTTP_201_CREATED, include_in_schema=False)
         @api.post("/agents/{agent_id}/init_engagement", status_code=status.HTTP_201_CREATED)
-        def init_engagement(agent_id: str, init: InitEngagement) -> None:
+        async def init_engagement(agent_id: str, init: InitEngagement) -> None:
             conv_client = ConversationClient.get_instance()
             # Get the data from the agent signature for making the chat name
             sig_payload = SignaturePayload.from_signature(init.agent_signature)
@@ -99,9 +100,10 @@ class HonuAgentRouter:
                 model_ref=init.mdl_ref
             )
 
-            response = self.local_session_client.client.post(f"/apps/{agent_id}/users/{self.USER_ID}/sessions/{session_id}", json=payload)
-            if response.status_code != status.HTTP_200_OK:
-                raise HTTPException(status_code=response.status_code, detail=response.text)
+            try:
+                await self.local_session_client.create_session(agent_id, session_id, payload)
+            except httpx.HTTPStatusError as e:
+                raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
 
             # Send a fake message to the agent to prompt an introduction message to the user
             fake_message = MessageNotification(
@@ -114,7 +116,7 @@ class HonuAgentRouter:
                     payload=TextMessage(body='honulabs_system_message: You have just been engaged by a User. Please introduce yourself to them.'),
                 )
             )
-            message_notification(fake_message)
+            await message_notification(fake_message)
 
             # Also create a task to run the brainbeat
             if agent_id not in self.create_brainbeats_for:
@@ -135,9 +137,12 @@ class HonuAgentRouter:
 
         @api.post("/agents/{agent_id}/disengage/", status_code=status.HTTP_200_OK, include_in_schema=False)
         @api.post("/agents/{agent_id}/disengage", status_code=status.HTTP_200_OK)
-        def disengage_agent(agent_id: str, disengage: DisengageAgent) -> None:
+        async def disengage_agent(agent_id: str, disengage: DisengageAgent) -> None:
             conversation_client = ConversationClient.get_instance()
-            sessions = self.local_session_client.get_sessions_for_model_ref(agent_id, disengage.mdl_ref)
+            try:
+                sessions = await self.local_session_client.get_sessions_for_model_ref(agent_id, disengage.mdl_ref)
+            except:
+                sessions = []
             for token, conv_id in sessions:
 
                 # Delete all the tasks
@@ -152,11 +157,14 @@ class HonuAgentRouter:
                     conversation_client.delete_conversation(token, disengage.mdl_ref, conv_id)
                 except:
                     pass
-                self.local_session_client.delete_session(agent_id, conv_id)
+                try:
+                    await self.local_session_client.delete_session(agent_id, conv_id)
+                except:
+                    pass
 
         @api.post("/scheduler/", status_code=status.HTTP_200_OK, include_in_schema=False)
         @api.post("/scheduler", status_code=status.HTTP_200_OK)
-        def run_task(payload: GADKAgentSchedulerPayload) -> str:
+        async def run_task(payload: GADKAgentSchedulerPayload) -> str:
             # Check that the session and app_name combo are correct
             run_request = RunAgentRequest(
                 app_name=payload.app_name,
@@ -169,7 +177,7 @@ class HonuAgentRouter:
                 streaming=False,
             )
             try:
-                self.local_session_client.run(run_request)
+                await self.local_session_client.run(run_request)
                 return 'success'
             except Exception as e:
                 return str(e.args)
