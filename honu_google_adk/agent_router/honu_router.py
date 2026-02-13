@@ -38,11 +38,11 @@ class HonuAgentRouter:
             hostname: str,
             port: int,
             agent_display_cards: dict[str, AgentDisplayInformation] | None = None,
-            agents_with_brainbeats: list[str] | None = None
+            agents_with_brainbeats: dict[str, str] | None = None
     ):
         self.agent_router = self._agent_engagement_api()
         self.display_info = agent_display_cards or {}
-        self.create_brainbeats_for = set(agents_with_brainbeats or [])
+        self.brainbeat_data = agents_with_brainbeats or {}
         self.logger = structlog.get_logger('honu_agent_router')
 
         # store token
@@ -119,7 +119,7 @@ class HonuAgentRouter:
             await message_notification(fake_message)
 
             # Also create a task to run the brainbeat
-            if agent_id not in self.create_brainbeats_for:
+            if agent_id not in self.brainbeat_data:
                 return
             tasks_client = ModelTasksAPIClient(init.auth_token, init.mdl_ref)
             task_payload = GADKAgentSchedulerPayload(
@@ -131,7 +131,7 @@ class HonuAgentRouter:
                 task_payload.model_dump(),
                 f'{agent_id} Brainbeat',
                 f'Brainbeat for {agent_id}.',
-                '0 9 * * *',
+                self.brainbeat_data[agent_id],
                 f'{self.hostname}/hapra/v1/scheduler',
             )
 
